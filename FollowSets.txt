@@ -1,0 +1,6 @@
+FOLLOW sets:
+FOLLOW(A) = { $ ) }
+FOLLOW(B) = { $ ) + }
+FOLLOW(E) = { $ ) }
+FOLLOW(F) = { $ ) * + }
+FOLLOW(T) = { $ ) + }

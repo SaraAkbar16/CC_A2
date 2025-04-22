@@ -1,80 +1,97 @@
-#include <map>
-#include <set>
-#include <string>
-#include <vector>
 #include <iostream>
 #include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <map>
+#include <set>
+#include <algorithm>
+#include <iterator>
 
 using namespace std;
 
 #define EPSILON "ε"
 
-// Function to trim leading/trailing spaces and tabs
+// Function to remove leading and trailing spaces/tabs from a string
 string trim2(const string& str) {
     int start = 0, end = str.length() - 1;
-    while (start <= end && (str[start] == ' ' || str[start] == '\t')) start++;
-    while (end >= start && (str[end] == ' ' || str[end] == '\t')) end--;
-    return str.substr(start, end - start + 1);
+    while (start <= end && (str[start] == ' ' || str[start] == '\t')) 
+        start++;
+
+    while (end >= start && (str[end] == ' ' || str[end] == '\t')) 
+        end--;
+
+    string result = "";
+    for (int i = start; i <= end; i++) 
+        result += str[i];
+
+    return result;
 }
 
-// Function to read FOLLOW sets from a file
-map<string, set<string>> readFollowSetsFromFile(const string& filename) {
-    map<string, set<string>> followSets;
-    ifstream inputFile(filename);
-    if (!inputFile.is_open()) {
-        cerr << "Error opening file: " << filename << endl;
-        return followSets;
+// Function to read CFG from a file and store in vectors
+void readCFGFromFile(const string& filename, vector<string>& prodleft, vector<string>& prodright) {
+    ifstream file(filename);
+    if (!file) {
+        cerr << "Error: Unable to open file " << filename << endl;
+        return;
     }
-
     string line;
-    while (getline(inputFile, line)) {
-        line = trim2(line);
-        size_t colonPos = line.find(":");
-        if (colonPos != string::npos) {
-            string nonTerminal = trim2(line.substr(0, colonPos));
-            string followString = trim2(line.substr(colonPos + 1));
-            set<string> followSet;
+    set<string> uniqueProductions;
 
-            size_t pos = 0;
-            while ((pos = followString.find(" ")) != string::npos) {
-                string terminal = trim2(followString.substr(0, pos));
-                if (!terminal.empty())
-                    followSet.insert(terminal == "id" ? "$" : terminal);
-                followString.erase(0, pos + 1);
+    while (getline(file, line)) {
+        stringstream ss(line);
+        string left, arrow, right;
+        ss >> left >> arrow;
+        getline(ss, right);
+        right = trim2(right);
+
+        if (!left.empty() && !right.empty()) {
+            stringstream rhs(right);
+            string production;
+            while (getline(rhs, production, '|')) {
+                production = trim2(production);
+                if (!production.empty()) {
+                    string productionRule = left + " → " + production;
+                    if (uniqueProductions.find(productionRule) == uniqueProductions.end()) {
+                        prodleft.push_back(left);
+                        prodright.push_back(production);
+                        uniqueProductions.insert(productionRule);
+                    }
+                }
             }
-            if (!followString.empty())
-                followSet.insert(followString == "id" ? "$" : followString);
-
-            followSets[nonTerminal] = followSet;
         }
     }
-
-    inputFile.close();
-    return followSets;
+    file.close();
 }
 
+// Modify the generateLL1Table function to save to a file simultaneously
 void generateLL1Table(const map<string, vector<vector<string>>>& productions,
     const map<string, set<string>>& first,
-    map<string, set<string>>& follow) {
+    const map<string, set<string>>& follow) {
 
+    // Open file to save the LL(1) table
     ofstream outputFile("ll1Table.txt");
+
     map<string, map<string, string>> table;
 
-    // Step 1: Build the LL(1) parsing table
-    for (const auto& [A, rules] : productions) {
+    // Iterate over each production rule
+    for (auto it = productions.begin(); it != productions.end(); ++it) {
+        string A = it->first;
+        vector<vector<string>> rules = it->second;
+
         for (const auto& rule : rules) {
             set<string> firstSet;
             bool hasEpsilon = false;
 
-            // Calculate First set for the production rule
+            // Compute FIRST(alpha)
             for (const auto& symbol : rule) {
-                if (first.find(symbol) == first.end()) {
-                    firstSet.insert(symbol); // terminal
+                auto itFirst = first.find(symbol);
+                if (itFirst == first.end()) { // Terminal symbol
+                    firstSet.insert(symbol);
                     break;
-                } else {
-                    firstSet.insert(first.at(symbol).begin(), first.at(symbol).end());
-                    if (first.at(symbol).count(EPSILON) == 0)
-                        break;
+                } else { // Non-terminal symbol
+                    firstSet.insert(itFirst->second.begin(), itFirst->second.end());
+                    if (itFirst->second.count(EPSILON) == 0) break;
                 }
             }
 
@@ -83,59 +100,78 @@ void generateLL1Table(const map<string, vector<vector<string>>>& productions,
                 hasEpsilon = true;
             }
 
-            string productionStr;
-            for (const auto& symbol : rule)
+            // Fill table for FIRST(alpha)
+            string productionStr = "";
+            for (const auto& symbol : rule) {
                 productionStr += symbol + " ";
+            }
             productionStr = trim2(productionStr);
 
-            // Add the rule to the table for the corresponding terminal
-            for (const string& terminal : firstSet)
+            for (const auto& terminal : firstSet) {
                 table[A][terminal] = productionStr;
+            }
 
-            // Handle epsilon case for FOLLOW set
+            // If epsilon is in FIRST(alpha), fill table for FOLLOW(A)
             if (hasEpsilon) {
-                if (follow.find(A) == follow.end())
-                    follow = readFollowSetsFromFile("followSets.txt");
-
-                for (const string& terminal : follow[A])
-                    table[A][terminal] = EPSILON;
+                auto itFollow = follow.find(A);
+                if (itFollow != follow.end()) {
+                    for (const auto& terminal : itFollow->second) {
+                        table[A][terminal] = EPSILON;
+                    }
+                    if (itFollow->second.count("$")) {
+                        table[A]["$"] = EPSILON;
+                    }
+                }
             }
         }
     }
 
-    // Step 2: Extract all non-terminals
-    set<string> allNonTerminals;
-    for (const auto& [nt, _] : productions)
-        allNonTerminals.insert(nt);
-
-    // Step 3: Output table header (X-axis: Terminals)
-    cout << "\nTerminals ->\nNT\\T\t";
-    outputFile << "\nTerminals ->\nNT\\T\t";
-    for (const auto& terminal : terminalOrder) {
-        cout << terminal << "\t";
-        outputFile << terminal << "\t";
+    // Collect all terminals for table headers
+    set<string> allTerminals;
+    for (const auto& [lhs, row] : table) {
+        for (const auto& [terminal, prod] : row) {
+            allTerminals.insert(terminal);
+        }
     }
-    cout << endl;
-    outputFile << endl;
 
-    // Step 4: Output each row (Y-axis: Non-terminals)
-    for (const auto& nonterminal : allNonTerminals) {
-        cout << nonterminal << " |\t";
-        outputFile << nonterminal << " |\t";
+    for (const auto& [nonterminal, followSet] : follow) {
+        if (followSet.count("$")) {
+            allTerminals.insert("$");
+        }
+    }
 
-        for (const auto& terminal : terminalOrder) {
-            if (table[nonterminal].find(terminal) != table[nonterminal].end()) {
-                cout << table[nonterminal][terminal] << "\t";
-                outputFile << table[nonterminal][terminal] << "\t";
+    // Print and write the LL(1) Parsing Table to the file
+    cout << "\nLL(1) Parsing Table:\n";
+    outputFile << "\nLL(1) Parsing Table:\n";
+
+    // Print the header (non-terminals)
+    cout << "    ";
+    outputFile << "    ";
+    for (const auto& term : allTerminals) {
+        cout << term << "\t";
+        outputFile << term << "\t";
+    }
+    cout << std::endl;
+    outputFile << std::endl;
+
+    // Print the table rows (non-terminals with corresponding productions)
+    for (const auto& [lhs, row] : table) {
+        cout << lhs << " | ";
+        outputFile << lhs << " | ";
+        for (const auto& term : allTerminals) {
+            if (row.find(term) != row.end()) {
+                cout << row.at(term) << "\t";
+                outputFile << row.at(term) << "\t";
             } else {
-                cout << "-\t";
+                cout << "-\t"; // Empty cell
                 outputFile << "-\t";
             }
         }
-
-        cout << endl;
-        outputFile << endl;
+        cout << std::endl;
+        outputFile << std::endl;
     }
 
+    // Close the output file after writing
     outputFile.close();
 }
+

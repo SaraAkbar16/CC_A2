@@ -1,0 +1,8 @@
+
+LL(1) Parsing Table:
+    $	(	*	+	F	T	id	
+A | -	-	-	+ T A	-	-	-	
+B | -	-	* F B	-	-	-	-	
+E | -	-	-	-	-	T A	-	
+F | -	( E )	-	-	-	-	id	
+T | -	-	-	-	F B	-	-	
