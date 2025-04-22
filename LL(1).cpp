@@ -51,7 +51,7 @@ void readCFGFromFile(const string& filename, vector<string>& prodleft, vector<st
             while (getline(rhs, production, '|')) {
                 production = trim2(production);
                 if (!production.empty()) {
-                    string productionRule = left + " → " + production;
+                    string productionRule = left + " -> " + production;
                     if (uniqueProductions.find(productionRule) == uniqueProductions.end()) {
                         prodleft.push_back(left);
                         prodright.push_back(production);

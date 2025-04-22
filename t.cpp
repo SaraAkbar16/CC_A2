@@ -89,38 +89,22 @@ string join(const vector<string>& vec, const string& separator) {
 // Function to read FOLLOW sets from a file
 map<string, set<string>> readFollowSetsFromFile(const string& filename) {
     map<string, set<string>> followSets;
-    ifstream inputFile(filename);
-    string line;
-
-    while (getline(inputFile, line)) {
-        // Skip empty lines
-        if (line.empty()) continue;
-
-        size_t posStart = line.find("FOLLOW(");
-        size_t posEnd = line.find(')', posStart);
-        if (posStart == string::npos || posEnd == string::npos) continue;
-
-        string nonTerminal = line.substr(posStart + 7, posEnd - posStart - 7);
-
-        size_t braceStart = line.find('{', posEnd);
-        size_t braceEnd = line.find('}', braceStart);
-        if (braceStart == string::npos || braceEnd == string::npos) continue;
-
-        string elements = line.substr(braceStart + 1, braceEnd - braceStart - 1);
-        stringstream ss(elements);
-        string token;
-        set<string> followSet;
-
-        while (ss >> token) {
-            if (token != "{" && token != "}") {
-                followSet.insert(token);
-            }
-        }
-
-        followSets[nonTerminal] = followSet;
+    ifstream file(filename);
+    if (!file) {
+        cerr << "Error: Unable to open file " << filename << endl;
+        return followSets; // Return empty map if file can't be opened
     }
 
-    inputFile.close();
+    string line;
+    while (getline(file, line)) {
+        stringstream ss(line);
+        string nonTerminal, arrow, follow;
+        ss >> nonTerminal >> arrow;
+        while (ss >> follow) {
+            followSets[nonTerminal].insert(follow);
+        }
+    }
+    file.close();
     return followSets;
 }
 
@@ -175,7 +159,7 @@ unordered_map<string, unordered_map<string, string>> generateLL1ParsingTable(
                 for (const auto& terminal : firstSets.at(production[0])) {
                     // Use find to avoid map.at() exception
                     if (parsingTable[nonTerminal].find(terminal) == parsingTable[nonTerminal].end()) {
-                        parsingTable[nonTerminal][terminal] = nonTerminal + " -> " + join(production, " ");
+                        parsingTable[nonTerminal][terminal] = nonTerminal + " → " + join(production, " ");
                     }
                 }
             }
@@ -185,7 +169,7 @@ unordered_map<string, unordered_map<string, string>> generateLL1ParsingTable(
                 if (followIt != followSets.end()) {
                     for (const auto& terminal : followIt->second) {
                         if (parsingTable[nonTerminal].find(terminal) == parsingTable[nonTerminal].end()) {
-                            parsingTable[nonTerminal][terminal] = nonTerminal + " -> ε";
+                            parsingTable[nonTerminal][terminal] = nonTerminal + " → ε";
                         }
                     }
                 } else {
@@ -235,68 +219,6 @@ void readCFGFromFile(const string& filename, vector<string>& prodleft, vector<st
     file.close();
 }
 
-map<string, set<string>> readFirstSetsFromFile(const string& filename) {
-    map<string, set<string>> firstSets;
-    ifstream inputFile(filename);
-    string line;
-
-    while (getline(inputFile, line)) {
-        // Skip empty lines
-        if (line.empty()) continue;
-
-        size_t posStart = line.find("FIRST(");
-        size_t posEnd = line.find(')', posStart);
-        if (posStart == string::npos || posEnd == string::npos) continue;
-
-        string nonTerminal = line.substr(posStart + 6, posEnd - posStart - 6);
-
-        size_t braceStart = line.find('{', posEnd);
-        size_t braceEnd = line.find('}', braceStart);
-        if (braceStart == string::npos || braceEnd == string::npos) continue;
-
-        string elements = line.substr(braceStart + 1, braceEnd - braceStart - 1);
-        stringstream ss(elements);
-        string token;
-        set<string> firstSet;
-
-        while (ss >> token) {
-            if (token != "{" && token != "}") {
-                firstSet.insert(token);
-            }
-        }
-        
-
-        firstSets[nonTerminal] = firstSet;
-    }
-
-    inputFile.close();
-    return firstSets;
-}
-// Function to print FOLLOW sets
-void printFollowSets(const map<string, set<string>>& followSets) {
-    cout << "\nFOLLOW sets:\n";
-    for (const auto& entry : followSets) {
-        cout << "FOLLOW(" << entry.first << ") = { ";
-        for (const auto& val : entry.second) {
-            cout << val << " ";
-        }
-        cout << "}\n";
-    }
-}
-
-// Function to print FIRST sets
-void printFirstSets(const map<string, set<string>>& firstSets) {
-        cout << "\nFIRST sets:\n";
-        for (const auto& pair : firstSets) {
-            cout << "FIRST(" << pair.first << ") = { ";
-            for (const string& s : pair.second) {
-                cout << s << " ";
-            }
-            cout << "}" << endl;
-        }
-    }
-
-
 int main() {
     vector<string> left_production, right_production;
     string filename = "cfg.txt";
@@ -311,31 +233,31 @@ int main() {
     map<string, vector<string>> groupedProductions;
     vector<string> nonTerminalOrder;
 
-     for (int i = 0; i < left_production.size(); ++i) {
-         if (groupedProductions.find(left_production[i]) == groupedProductions.end()) {
-             nonTerminalOrder.push_back(left_production[i]);
-         }
-         groupedProductions[left_production[i]].push_back(right_production[i]);
-     }
+    for (int i = 0; i < left_production.size(); ++i) {
+        if (groupedProductions.find(left_production[i]) == groupedProductions.end()) {
+            nonTerminalOrder.push_back(left_production[i]);
+        }
+        groupedProductions[left_production[i]].push_back(right_production[i]);
+    }
 
-    // // Write left-factored grammar to tempLeftFactored.txt while preserving order
-     ofstream tempFile("tempLeftFactored.txt");
-     for (const string& lhs : nonTerminalOrder) {
-         const vector<string>& rhsList = groupedProductions[lhs];
-         tempFile << lhs << " -> ";
-         for (size_t i = 0; i < rhsList.size(); ++i) {
-             tempFile << rhsList[i];
-             if (i < rhsList.size() - 1)
-                 tempFile << " | ";
-         }
-         tempFile << endl;
-     }
-     tempFile.close();
+    // Write left-factored grammar to tempLeftFactored.txt while preserving order
+    ofstream tempFile("tempLeftFactored.txt");
+    for (const string& lhs : nonTerminalOrder) {
+        const vector<string>& rhsList = groupedProductions[lhs];
+        tempFile << lhs << " -> ";
+        for (size_t i = 0; i < rhsList.size(); ++i) {
+            tempFile << rhsList[i];
+            if (i < rhsList.size() - 1)
+                tempFile << " | ";
+        }
+        tempFile << endl;
+    }
+    tempFile.close();
 
-    // // Read the left-factored CFG and eliminate left recursion
-     vector<pair<string, Production>> cfg = readCFG("tempLeftFactored.txt");
-     eliminateLeftRecursion(cfg);
-     printCFG(cfg);
+    // Read the left-factored CFG and eliminate left recursion
+    vector<pair<string, Production>> cfg = readCFG("tempLeftFactored.txt");
+    eliminateLeftRecursion(cfg);
+    printCFG(cfg);
 
     // Convert cfg to expected format
     map<string, vector<vector<string>>> formattedCFG;
@@ -351,29 +273,17 @@ int main() {
         formattedCFG[lhs] = rules;
     }
 
+    // Dynamically fetch the start symbol from the first production rule
+    string startSymbol = left_production[0];
 
-    // Compute First and Follow sets, then generate LL(1) table
-    FirstFollowSet ff(formattedCFG, cfg.begin()->first);
-     ff.computeAllFirst();
-     ff.computeAllFollow();
-     ff.printFirstSets();
-     ff.printFollowSets();
-     ff.saveFirstSetsToFile("FirstSets.txt");
-     ff.saveFollowSetsToFile("FollowSets.txt");
-     map<string, set<string>> followSetsFromFile = readFollowSetsFromFile("FollowSets.txt");
+    // Read Follow sets from file
+    map<string, set<string>> followSetsFromFile = readFollowSetsFromFile("followsets.txt");
 
-    // Read First sets from file (create a function similar to readFollowSetsFromFile)
-    map<string, set<string>> firstSetsFromFile = readFirstSetsFromFile("FirstSets.txt");
-
-// Print FOLLOW sets
-printFollowSets(followSetsFromFile);
-    
-printFirstSets(firstSetsFromFile);
-
-    // Generate LL(1) Parsing Table
-   auto parsingTable = generateLL1ParsingTable(formattedCFG, firstSetsFromFile, followSetsFromFile);
+    // Generate the LL(1) parsing table
+    unordered_map<string, unordered_map<string, string>> parsingTable = generateLL1ParsingTable(formattedCFG, firstSets, followSetsFromFile);
 
     // Print the LL(1) parsing table
     printParsingTable(parsingTable);
+
     return 0;
 }

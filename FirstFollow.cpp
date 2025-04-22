@@ -182,17 +182,24 @@ void saveFirstSetsToFile(const string& filename) {
 
 // Function to save FOLLOW sets to a file
 void saveFollowSetsToFile(const string& filename) {
-    ofstream outputFile(filename);
-    outputFile << "FOLLOW sets:\n";
-    for (const auto& entry : follow) {
-        outputFile << "FOLLOW(" << entry.first << ") = { ";
-        for (const auto& val : entry.second) {
-            outputFile << val << " ";
+        ofstream outputFile(filename);
+        outputFile << "FOLLOW sets:\n";
+        for (const auto& entry : follow) {
+            // Only print sets that are not empty
+            if (!entry.second.empty()) {
+                outputFile << "FOLLOW(" << entry.first << ") = { ";
+                for (const auto& val : entry.second) {
+                    outputFile << val << " ";
+                }
+                outputFile << "}\n";
+            } else {
+                outputFile << "FOLLOW(" << entry.first << ") = { }\n";
+            }
         }
-        outputFile << "}\n";
+        outputFile.close();
     }
-    outputFile.close();
-}
+    
+
 // Add these inside FirstFollowSet class
 const map<string, set<string>>& getFirstSets() const {
     return firstSets;
@@ -203,4 +210,3 @@ const map<string, set<string>>& getFollowSets() const {
 }
 
 };
-
