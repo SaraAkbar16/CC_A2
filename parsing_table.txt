@@ -1,0 +1,6 @@
+   Non-Terminal              *              +              )             id              (              $
+              F                                                     F -> id     F -> ( E )               
+              E                                                    E -> T A       E -> T A               
+              T                                                    T -> F B       T -> F B               
+              B     B -> * F B        B -> ε        B -> ε                                      B -> ε
+              A                    A -> + T A        A -> ε                                      A -> ε

@@ -212,6 +212,45 @@ unordered_map<string, unordered_map<string, string>> generateLL1ParsingTable(
     return parsingTable;
 }
 
+void saveParsingTableToFile(const unordered_map<string, unordered_map<string, string>>& parsingTable, const string& filename) {
+    ofstream outFile(filename);
+    if (!outFile.is_open()) {
+        cerr << "Error: Could not open file " << filename << " for writing." << endl;
+        return;
+    }
+
+    // Collect all terminals
+    unordered_set<string> terminals;
+    for (const auto& row : parsingTable) {
+        for (const auto& col : row.second) {
+            terminals.insert(col.first);
+        }
+    }
+
+    // Write the header row
+    outFile << setw(15) << "Non-Terminal";
+    for (const auto& terminal : terminals) {
+        outFile << setw(15) << terminal;
+    }
+    outFile << endl;
+
+    // Write the table contents
+    for (const auto& row : parsingTable) {
+        outFile << setw(15) << row.first;
+        for (const auto& terminal : terminals) {
+            auto it = row.second.find(terminal);
+            if (it != row.second.end()) {
+                outFile << setw(15) << it->second;
+            } else {
+                outFile << setw(15) << "";
+            }
+        }
+        outFile << endl;
+    }
+
+    outFile.close();
+    cout << "Parsing table saved to: " << filename << endl;
+}
 
 
 
@@ -391,5 +430,8 @@ printFirstSets(firstSetsFromFile);
 
     // Print the LL(1) parsing table
     printParsingTable(parsingTable);
+    
+// Save it to a file
+saveParsingTableToFile(parsingTable, "parsing_table.txt");
     return 0;
 }
