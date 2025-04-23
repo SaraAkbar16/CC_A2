@@ -1,6 +1,4 @@
 FIRST sets:
-FIRST(A) = { + ε }
-FIRST(B) = { * ε }
-FIRST(E) = { ( id }
-FIRST(F) = { ( id }
-FIRST(T) = { ( id }
+FIRST(A) = { b }
+FIRST(B) = { c }
+FIRST(S) = { a }

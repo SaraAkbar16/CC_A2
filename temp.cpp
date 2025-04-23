@@ -193,19 +193,25 @@ unordered_map<string, unordered_map<string, string>> generateLL1ParsingTable(
                 }
             }
 
-            // If production derives ε, use FOLLOW set
+            // If production derives ε, use FOLLOW set (including $ if present)
             if (epsilonInAll || (production.size() == 1 && production[0] == "ε")) {
                 for (const string& terminal : followSets.at(nonTerminal)) {
-                    if (terminal != "ε") {
-                        parsingTable[nonTerminal][terminal] = nonTerminal + " -> ε";
-                    }
+                    parsingTable[nonTerminal][terminal] = nonTerminal + " -> ε";
                 }
+            }
+        }
+
+        // Ensure $ is explicitly added to the parsing table if it exists in FOLLOW
+        if (followSets.at(nonTerminal).count("$")) {
+            if (parsingTable[nonTerminal].count("$") == 0) {
+                parsingTable[nonTerminal]["$"] = ""; // Can initialize with an empty string or specific rule
             }
         }
     }
 
     return parsingTable;
 }
+
 
 
 
