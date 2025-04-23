@@ -162,34 +162,43 @@ unordered_map<string, unordered_map<string, string>> generateLL1ParsingTable(
 
     unordered_map<string, unordered_map<string, string>> parsingTable;
 
-    // Loop through all non-terminals and their productions
-    for (const auto& lhs : formattedCFG) {
-        const string& nonTerminal = lhs.first;
-        const vector<vector<string>>& productions = lhs.second;
-
-        // For each production rule of the non-terminal
+    for (const auto& [nonTerminal, productions] : formattedCFG) {
         for (const auto& production : productions) {
-            // If the production starts with a terminal, add it directly to the table
-            if (firstSets.find(production[0]) != firstSets.end() &&
-                firstSets.at(production[0]).find("ε") == firstSets.at(production[0]).end()) {
-                for (const auto& terminal : firstSets.at(production[0])) {
-                    // Use find to avoid map.at() exception
-                    if (parsingTable[nonTerminal].find(terminal) == parsingTable[nonTerminal].end()) {
-                        parsingTable[nonTerminal][terminal] = nonTerminal + " -> " + join(production, " ");
-                    }
-                }
-            }
-            // If the production starts with epsilon, use follow sets
-            else {
-                auto followIt = followSets.find(nonTerminal);
-                if (followIt != followSets.end()) {
-                    for (const auto& terminal : followIt->second) {
-                        if (parsingTable[nonTerminal].find(terminal) == parsingTable[nonTerminal].end()) {
-                            parsingTable[nonTerminal][terminal] = nonTerminal + " -> ε";
+            set<string> firstOfProduction;
+            bool epsilonInAll = true;
+
+            for (const string& symbol : production) {
+                if (firstSets.count(symbol)) {
+                    for (const string& terminal : firstSets.at(symbol)) {
+                        if (terminal != "ε") {
+                            firstOfProduction.insert(terminal);
                         }
                     }
+                    if (firstSets.at(symbol).find("ε") == firstSets.at(symbol).end()) {
+                        epsilonInAll = false;
+                        break;
+                    }
                 } else {
-                    cout << "Follow set not found for non-terminal: " << nonTerminal << endl;
+                    // Terminal symbol (not in FIRST sets)
+                    firstOfProduction.insert(symbol);
+                    epsilonInAll = false;
+                    break;
+                }
+            }
+
+            // Add production to parsing table for terminals in FIRST
+            for (const string& terminal : firstOfProduction) {
+                if (terminal != "ε") {
+                    parsingTable[nonTerminal][terminal] = nonTerminal + " -> " + join(production, " ");
+                }
+            }
+
+            // If production derives ε, use FOLLOW set
+            if (epsilonInAll || (production.size() == 1 && production[0] == "ε")) {
+                for (const string& terminal : followSets.at(nonTerminal)) {
+                    if (terminal != "ε") {
+                        parsingTable[nonTerminal][terminal] = nonTerminal + " -> ε";
+                    }
                 }
             }
         }
@@ -197,6 +206,7 @@ unordered_map<string, unordered_map<string, string>> generateLL1ParsingTable(
 
     return parsingTable;
 }
+
 
 
 // Function to read CFG from file
